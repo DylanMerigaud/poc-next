@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   AccumulativeShadows,
   RandomizedLight,
@@ -57,6 +60,10 @@ const SizesStock: Record<Size, number> = {
   xxl: 6,
   xxxl: 7,
 };
+
+const THEMES = ["light", "dark"] as const;
+type Theme = (typeof THEMES)[number];
+const LOCALSTORAGE_THEME_KEY = "theme";
 
 const colorAtom = atom<Color>(COLORS[0]);
 const sizeAtom = atom<Size | null>(null);
@@ -131,7 +138,12 @@ const Shirt = (props: MeshProps) => {
   const [decal] = useAtom(decalAtom);
   const [color] = useAtom(colorAtom);
   const texture = useTexture(`/${decal}.png`);
-  const { nodes, materials } = useGLTF("/shirt_baked_collapsed.glb");
+  const { nodes, materials } = useGLTF(
+    "/shirt_baked_collapsed.glb"
+  ) as unknown as {
+    nodes: any;
+    materials: any;
+  };
   useFrame((_state, delta) =>
     easing.dampC(materials.lambert1.color, color, 0.25, delta)
   );
@@ -166,14 +178,38 @@ const Overlay = () => {
   const [manualControl, setManualControl] = useAtom(manualControlAtom);
   const [cart, setCart] = useAtom(cartAtom);
   const [showAddedToCart, setShowAddedToCart] = useState(false);
-  const showAddedToCartTimeout = useRef<number | null>(null);
+  const showAddedToCartTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const unitPrice = 45;
   const totalPrice = 45 * quantity;
-  const overSelectedQuantity = SizesStock[size] < quantity;
+  const overSelectedQuantity = !!size && SizesStock[size] < quantity;
+
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+
+  useEffect(() => {
+    if (
+      window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light"
+    )
+      setTheme("dark");
+  }, [typeof window !== "undefined"]);
+
+  useEffect(() => {
+    if (THEMES.includes(localStorage.getItem(LOCALSTORAGE_THEME_KEY) as Theme))
+      setTheme(localStorage.getItem(LOCALSTORAGE_THEME_KEY) as Theme);
+  }, [typeof localStorage !== "undefined"]);
+
+  useEffect(() => {
+    localStorage.setItem(LOCALSTORAGE_THEME_KEY, theme);
+  }, [theme]);
 
   return (
-    <main className="absolute inset-0 h-screen w-screen overflow-hidden [&>*]:z-10 ">
+    <main
+      className="absolute inset-0 h-screen w-screen overflow-hidden [&>*]:z-10"
+      data-theme={theme}
+    >
       <div className="navbar absolute top-0">
         <div className="flex-1">
           <a className="btn-ghost btn text-xl normal-case">STYLECROP</a>
@@ -181,8 +217,7 @@ const Overlay = () => {
         <div className="flex-none">
           <div
             className={clsx("dropdown-end dropdown", {
-              "tooltip-info tooltip-open tooltip tooltip-bottom":
-                showAddedToCart,
+              "tooltip-info tooltip-open tooltip tooltip-left": showAddedToCart,
             })}
             data-tip={
               showAddedToCart ? "Item was added in the cart" : undefined
@@ -251,8 +286,19 @@ const Overlay = () => {
                 <a className="justify-between">Profile</a>
               </li>
               <li>
-                <a data-toggle-theme="dark,light" data-act-class="ACTIVECLASS">
-                  Switch theme
+                <a
+                  onClick={() => {
+                    setTheme(
+                      (t) =>
+                        THEMES.at(THEMES.findIndex((e) => e === t) + 1) ||
+                        THEMES[0]
+                    );
+                  }}
+                >
+                  Switch to{" "}
+                  {THEMES.at(THEMES.findIndex((e) => e === theme) + 1) ||
+                    THEMES[0]}{" "}
+                  theme
                 </a>
               </li>
               <li>
@@ -353,7 +399,7 @@ const Overlay = () => {
         }}
       >
         <h1 className="flex items-center gap-4 text-3xl text-accent">
-          Crew neck T-Shirt{" "}
+          Crew neck Tee-Shirt{" "}
           <div className="flex items-center gap-2">
             <div
               className={"h-4 w-4 rounded-full"}
@@ -435,13 +481,13 @@ const Overlay = () => {
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
-            stroke-width="1.5"
+            strokeWidth="1.5"
             stroke="currentColor"
-            class="h-6 w-6"
+            className="h-6 w-6"
           >
             <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
+              strokeLinecap="round"
+              strokeLinejoin="round"
               d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"
             />
           </svg>{" "}
