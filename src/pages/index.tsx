@@ -447,7 +447,7 @@ const Overlay = () => {
           Crew neck Tee-Shirt{" "}
           <div className="flex items-center gap-2">
             <div
-              className={"h-4 w-4 rounded-full"}
+              className={"h-4 w-4 rounded-full ring-1 ring-white"}
               style={{ background: color }}
             />
             <span className="text-sm">({ColorNames[color]})</span>
