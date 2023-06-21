@@ -23,10 +23,17 @@ import { easing } from "maath";
 import { signIn, signOut, useSession } from "next-auth/react";
 import Head from "next/head";
 import Image from "next/image";
-import { type PropsWithChildren, useEffect, useRef, useState } from "react";
+import {
+  type PropsWithChildren,
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+} from "react";
 import { type Group } from "three";
 import { api } from "~/utils/api";
 import { themeChange } from "theme-change";
+import { produce } from "immer";
 
 const DECALS = ["react", "dodgecoin", "nextjs"] as const;
 type Decal = (typeof DECALS)[number];
@@ -69,7 +76,7 @@ const colorAtom = atom<Color>(COLORS[0]);
 const sizeAtom = atom<Size | null>(null);
 const quantityAtom = atom<number>(1);
 const decalAtom = atom<Decal>(DECALS[0]);
-const cartAtom = atom<{ color: Color; quantity: number }[]>([]);
+const cartAtom = atom<{ color: Color; quantity: number; size: Size }[]>([]);
 const manualControlAtom = atom(false);
 
 function Backdrop() {
@@ -180,6 +187,22 @@ const Overlay = () => {
   const [showAddedToCart, setShowAddedToCart] = useState(false);
   const showAddedToCartTimeout = useRef<NodeJS.Timeout | null>(null);
 
+  const sizesTempStock = useMemo(
+    () =>
+      Object.keys(SizesStock).reduce(
+        (res, k) => {
+          const key = k as Size;
+          res[key] =
+            SizesStock[key] -
+            (cart.find((item) => item.size === key) || { quantity: 0 })
+              .quantity;
+          return res;
+        },
+        { ...SizesStock }
+      ),
+    [cart]
+  );
+
   const unitPrice = 45;
   const totalPrice = 45 * quantity;
   const overSelectedQuantity = !!size && SizesStock[size] < quantity;
@@ -264,6 +287,14 @@ const Overlay = () => {
                     cart.reduce((acc, e) => e.quantity * unitPrice + acc, 0)
                   )}
                 </span>
+                <ul>
+                  {cart.map((item) => (
+                    <li key={item.size + item.color}>
+                      {item.quantity} {ColorNames[item.color]} Crew neck
+                      Tee-Shirt ({item.size.toUpperCase()})
+                    </li>
+                  ))}
+                </ul>
                 <div className="card-actions">
                   <button className="btn-primary btn-block btn">
                     Checkout
@@ -395,7 +426,21 @@ const Overlay = () => {
             () => setShowAddedToCart(false),
             3000
           );
-          setCart((cart) => [...cart, { size, quantity, color: color }]);
+          setCart((cart) =>
+            produce(cart, (draft) => {
+              const foundIndex = draft.findIndex(
+                (e) => e.color === color && e.size === size
+              );
+              if (foundIndex === -1)
+                return [
+                  ...cart,
+                  { size: size as Size, quantity, color: color },
+                ];
+              const foundElem = draft[foundIndex];
+              if (foundElem) foundElem.quantity += quantity;
+            })
+          );
+          setQuantity((q) => Math.min(q, size ? sizesTempStock[size] - q : q));
         }}
       >
         <h1 className="flex items-center gap-4 text-3xl text-accent">
@@ -429,6 +474,7 @@ const Overlay = () => {
             required
             onChange={(e) => {
               setSize(e.target.value as Size);
+              setQuantity((q) => Math.min(q, size ? sizesTempStock[size] : q));
             }}
             value={size || ""}
             className="select-bordered select flex-1"
@@ -437,7 +483,7 @@ const Overlay = () => {
               Choose your size
             </option>
             {SIZES.map((s) => {
-              const stockNumber = SizesStock[s];
+              const stockNumber = sizesTempStock[s];
               const outOfStock = stockNumber === 0;
 
               return (
@@ -463,19 +509,22 @@ const Overlay = () => {
             onKeyDown={(e) => {
               if ([".", "-"].includes(e.key)) e.preventDefault();
             }}
+            value={quantity}
             onChange={(e) => {
               const sanitized = e.target.value
                 .replace(/\-/g, "")
                 .replace(/\./g, "");
 
-              setQuantity(parseInt(sanitized) || 0);
+              setQuantity(
+                Math.min(
+                  parseInt(sanitized) || 0,
+                  size ? sizesTempStock[size] : Infinity
+                )
+              );
             }}
           />
         </div>
-        <button
-          className="btn-primary btn"
-          disabled={!size || !totalPrice || overSelectedQuantity}
-        >
+        <button className="btn-primary btn" disabled={overSelectedQuantity}>
           Add to Cart{" "}
           <svg
             xmlns="http://www.w3.org/2000/svg"
