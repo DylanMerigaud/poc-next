@@ -29,6 +29,7 @@ import {
   useRef,
   useState,
   useMemo,
+  useCallback,
 } from "react";
 import { type Group } from "three";
 import { api } from "~/utils/api";
@@ -78,6 +79,7 @@ const quantityAtom = atom<number>(1);
 const decalAtom = atom<Decal>(DECALS[0]);
 const cartAtom = atom<{ color: Color; quantity: number; size: Size }[]>([]);
 const manualControlAtom = atom(false);
+const overlayHoveredAtom = atom(false);
 
 function Backdrop() {
   const shadows = useRef<any>();
@@ -116,6 +118,7 @@ function Backdrop() {
 function CameraRig({ children }: PropsWithChildren) {
   const group = useRef<Group>(null);
   const manualControl = useAtomValue(manualControlAtom);
+  const overlayHovered = useAtomValue(overlayHoveredAtom);
 
   useFrame((state, delta) => {
     if (manualControl) {
@@ -127,7 +130,9 @@ function CameraRig({ children }: PropsWithChildren) {
       if (group.current)
         easing.dampE(
           group.current.rotation,
-          [state.pointer.y / 6, -state.pointer.x, 0],
+          overlayHovered
+            ? [0, 0, 0]
+            : [state.pointer.y / 6, -state.pointer.x, 0],
           0.25,
           delta
         );
@@ -185,6 +190,7 @@ const Overlay = () => {
   const [manualControl, setManualControl] = useAtom(manualControlAtom);
   const [cart, setCart] = useAtom(cartAtom);
   const [showAddedToCart, setShowAddedToCart] = useState(false);
+  const [overlayHovered, setOverlayHovered] = useAtom(overlayHoveredAtom);
   const showAddedToCartTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const sizesTempStock = useMemo(
@@ -228,6 +234,14 @@ const Overlay = () => {
     localStorage.setItem(LOCALSTORAGE_THEME_KEY, theme);
   }, [theme]);
 
+  const handleMouseEnter = useCallback(() => {
+    setOverlayHovered(true);
+  }, [setOverlayHovered]);
+
+  const handleMouseLeave = useCallback(() => {
+    setOverlayHovered(false);
+  }, [setOverlayHovered]);
+
   return (
     <main
       className="absolute inset-0 h-screen w-screen overflow-hidden [&>*]:z-10"
@@ -235,7 +249,13 @@ const Overlay = () => {
     >
       <div className="navbar absolute top-0">
         <div className="flex-1">
-          <a className="btn-ghost btn text-xl normal-case">STYLECROP</a>
+          <a
+            className="btn-ghost btn text-xl normal-case"
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
+            STYLECROP
+          </a>
         </div>
         <div className="flex-none">
           <div
@@ -248,6 +268,8 @@ const Overlay = () => {
             onClick={() => {
               setShowAddedToCart(false);
             }}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
           >
             <label tabIndex={0} className="btn-ghost btn-circle btn">
               <div className="indicator">
@@ -303,10 +325,19 @@ const Overlay = () => {
               </div>
             </div>
           </div>
-          <div className="dropdown-end dropdown">
+          <div
+            className="dropdown-end dropdown"
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
             <label tabIndex={0} className="btn-ghost btn-circle avatar btn">
               <div className="w-10 rounded-full">
-                <img src="/fake_profile.jpg" />
+                <Image
+                  width={256}
+                  height={256}
+                  alt=""
+                  src="/fake_profile.jpg"
+                />
               </div>
             </label>
             <ul
@@ -348,7 +379,11 @@ const Overlay = () => {
           </div>
         </div>
       </div>
-      <div className="card absolute bottom-60 left-6 flex flex-col gap-2 bg-slate-400 bg-opacity-10 p-2 shadow-lg ">
+      <div
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        className="card absolute bottom-60 left-6 flex flex-col gap-2 bg-slate-400 bg-opacity-10 p-2 shadow-lg "
+      >
         {COLORS.map((c) => (
           <button
             key={c}
@@ -361,7 +396,11 @@ const Overlay = () => {
           ></button>
         ))}
       </div>
-      <div className="card absolute bottom-6 left-6 flex flex-col gap-2 bg-slate-400 bg-opacity-5 p-2 shadow-lg">
+      <div
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        className="card absolute bottom-6 left-6 flex flex-col gap-2 bg-slate-400 bg-opacity-5 p-2 shadow-lg"
+      >
         {DECALS.map((d) => (
           <button
             key={d}
@@ -383,6 +422,8 @@ const Overlay = () => {
         ))}
       </div>
       <button
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         className="absolute bottom-6 left-28 flex gap-2 rounded-2xl bg-slate-400 bg-opacity-10 p-2 text-secondary shadow-lg hover:scale-105 hover:bg-opacity-20 active:bg-opacity-30"
         onClick={() => {
           const link = document.createElement("a");
@@ -413,6 +454,8 @@ const Overlay = () => {
         </svg>
       </button>
       <form
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         className="card absolute bottom-5 right-6 flex flex-col gap-2 bg-slate-400 bg-opacity-10 p-2 shadow-lg"
         onSubmit={(e) => {
           e.preventDefault();
