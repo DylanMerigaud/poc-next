@@ -412,12 +412,7 @@ const Overlay = () => {
             )}
             onClick={() => setDecal(d)}
           >
-            <Image
-              width={50}
-              height={50}
-              src={"/" + d + "_thumb.png"}
-              alt={d}
-            />
+            <Image width={64} height={64} src={"/" + d + ".png"} alt={d} />
           </button>
         ))}
       </div>
