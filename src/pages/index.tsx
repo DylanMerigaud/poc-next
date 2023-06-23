@@ -44,6 +44,7 @@ import {
   useTrail,
   useTransition,
 } from "@react-spring/web";
+import { useBoolean } from "usehooks-ts";
 
 const DECALS = ["react", "dodgecoin", "nextjs"] as const;
 type Decal = (typeof DECALS)[number];
@@ -685,7 +686,7 @@ const Intro = ({ show }: { show: boolean }) => {
     <AnimatePresence>
       {show && (
         <motion.div
-          className="absolute z-10 h-screen w-screen bg-white"
+          className="absolute z-10 h-screen w-screen bg-base-100"
           initial={{ opacity: 1 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -722,7 +723,9 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    console.log("1");
     if (
+      window &&
       window.matchMedia &&
       window.matchMedia("(prefers-color-scheme: dark)").matches
         ? "dark"
@@ -732,12 +735,23 @@ export default function Home() {
   }, [typeof window !== "undefined"]);
 
   useEffect(() => {
-    if (THEMES.includes(localStorage.getItem(LOCALSTORAGE_THEME_KEY) as Theme))
+    console.log("2");
+
+    if (
+      localStorage &&
+      THEMES.includes(localStorage.getItem(LOCALSTORAGE_THEME_KEY) as Theme)
+    )
       setTheme(localStorage.getItem(LOCALSTORAGE_THEME_KEY) as Theme);
   }, [typeof localStorage !== "undefined"]);
 
+  const initialRenderBoolean = useBoolean(true);
   useEffect(() => {
-    localStorage.setItem(LOCALSTORAGE_THEME_KEY, theme);
+    initialRenderBoolean.setFalse();
+  }, []);
+
+  useEffect(() => {
+    if (!initialRenderBoolean.value)
+      localStorage.setItem(LOCALSTORAGE_THEME_KEY, theme);
   }, [theme]);
 
   return (
