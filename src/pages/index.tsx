@@ -30,14 +30,28 @@ import {
   useState,
   useMemo,
   useCallback,
+  Children,
+  type HtmlHTMLAttributes,
 } from "react";
 import { type Group } from "three";
 import { api } from "~/utils/api";
-import { themeChange } from "theme-change";
 import { produce } from "immer";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  a,
+  animated,
+  useSpring,
+  useTrail,
+  useTransition,
+} from "@react-spring/web";
 
 const DECALS = ["react", "dodgecoin", "nextjs"] as const;
 type Decal = (typeof DECALS)[number];
+const DecalNames: Record<Decal, string> = {
+  react: "React",
+  dodgecoin: "Dodgecoin",
+  nextjs: "Next.js",
+};
 
 const COLORS = [
   "#ccc",
@@ -77,7 +91,10 @@ const colorAtom = atom<Color>(COLORS[0]);
 const sizeAtom = atom<Size | null>(null);
 const quantityAtom = atom<number>(1);
 const decalAtom = atom<Decal>(DECALS[0]);
-const cartAtom = atom<{ color: Color; quantity: number; size: Size }[]>([]);
+const themeAtom = atom<Theme>("light");
+const cartAtom = atom<
+  { color: Color; quantity: number; size: Size; decal: Decal }[]
+>([]);
 const manualControlAtom = atom(false);
 const overlayHoveredAtom = atom(false);
 
@@ -188,6 +205,7 @@ const Overlay = () => {
   const [size, setSize] = useAtom(sizeAtom);
   const [quantity, setQuantity] = useAtom(quantityAtom);
   const [manualControl, setManualControl] = useAtom(manualControlAtom);
+  const [theme, setTheme] = useAtom(themeAtom);
   const [cart, setCart] = useAtom(cartAtom);
   const [showAddedToCart, setShowAddedToCart] = useState(false);
   const [overlayHovered, setOverlayHovered] = useAtom(overlayHoveredAtom);
@@ -213,27 +231,6 @@ const Overlay = () => {
   const totalPrice = 45 * quantity;
   const overSelectedQuantity = !!size && SizesStock[size] < quantity;
 
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-
-  useEffect(() => {
-    if (
-      window.matchMedia &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light"
-    )
-      setTheme("dark");
-  }, [typeof window !== "undefined"]);
-
-  useEffect(() => {
-    if (THEMES.includes(localStorage.getItem(LOCALSTORAGE_THEME_KEY) as Theme))
-      setTheme(localStorage.getItem(LOCALSTORAGE_THEME_KEY) as Theme);
-  }, [typeof localStorage !== "undefined"]);
-
-  useEffect(() => {
-    localStorage.setItem(LOCALSTORAGE_THEME_KEY, theme);
-  }, [theme]);
-
   const handleMouseEnter = useCallback(() => {
     setOverlayHovered(true);
   }, [setOverlayHovered]);
@@ -243,10 +240,7 @@ const Overlay = () => {
   }, [setOverlayHovered]);
 
   return (
-    <main
-      className="absolute inset-0 h-screen w-screen overflow-hidden [&>*]:z-10"
-      data-theme={theme}
-    >
+    <div className="absolute inset-0 h-screen w-screen overflow-hidden [&>*]:z-10">
       <div className="navbar absolute top-0">
         <div className="flex-1">
           <a
@@ -309,11 +303,20 @@ const Overlay = () => {
                     cart.reduce((acc, e) => e.quantity * unitPrice + acc, 0)
                   )}
                 </span>
-                <ul>
+                <ul className="flex flex-col gap-1">
                   {cart.map((item) => (
-                    <li key={item.size + item.color}>
-                      {item.quantity} {ColorNames[item.color]} Crew neck
-                      Tee-Shirt ({item.size.toUpperCase()})
+                    <li
+                      className="text-base text-accent"
+                      key={item.size + item.color + item.decal}
+                    >
+                      {item.quantity} Crew neck Tee-Shirt
+                      <ul className="text-xs text-accent-content">
+                        {[
+                          `${ColorNames[item.color]}`,
+                          `${item.size.toUpperCase()}`,
+                          `${DecalNames[item.decal]} decal`,
+                        ].join(" | ")}
+                      </ul>
                     </li>
                   ))}
                 </ul>
@@ -373,7 +376,10 @@ const Overlay = () => {
                 </a>
               </li>
               <li>
-                <a>Logout</a>
+                <a onClick={() => void signOut()}>Logout</a>
+              </li>
+              <li>
+                <a onClick={() => void signIn()}>Sign In</a>
               </li>
             </ul>
           </div>
@@ -388,9 +394,10 @@ const Overlay = () => {
           <button
             key={c}
             className={clsx(
-              "h-8 w-8 rounded-full hover:scale-110",
+              "tooltip-info tooltip tooltip-right h-8 w-8 rounded-full hover:scale-110",
               c === color ? "ring-2" : "ring-1 ring-white"
             )}
+            data-tip={ColorNames[c]}
             style={{ background: c }}
             onClick={() => setColor(c)}
           ></button>
@@ -405,11 +412,12 @@ const Overlay = () => {
           <button
             key={d}
             className={clsx(
-              "flex h-14 w-14 items-center justify-center rounded-sm bg-slate-400 bg-opacity-10 hover:scale-105 hover:bg-opacity-20 active:bg-opacity-30",
+              "tooltip-info tooltip tooltip-right flex h-14 w-14 items-center justify-center rounded-sm bg-slate-400 bg-opacity-10 hover:scale-105 hover:bg-opacity-20 active:bg-opacity-30",
               {
                 "ring-2": d === decal,
               }
             )}
+            data-tip={DecalNames[d]}
             onClick={() => setDecal(d)}
           >
             <Image
@@ -473,12 +481,12 @@ const Overlay = () => {
           setCart((cart) =>
             produce(cart, (draft) => {
               const foundIndex = draft.findIndex(
-                (e) => e.color === color && e.size === size
+                (e) => e.color === color && e.size === size && e.decal === decal
               );
               if (foundIndex === -1)
                 return [
                   ...cart,
-                  { size: size as Size, quantity, color: color },
+                  { size: size as Size, quantity, color, decal },
                 ];
               const foundElem = draft[foundIndex];
               if (foundElem) foundElem.quantity += quantity;
@@ -494,7 +502,7 @@ const Overlay = () => {
               className={"h-4 w-4 rounded-full ring-1 ring-white"}
               style={{ background: color }}
             />
-            <span className="text-sm">({ColorNames[color]})</span>
+            <span className="text-sm">{ColorNames[color]}</span>
           </div>
         </h1>
         <ul className="text-sm text-accent-content">
@@ -531,12 +539,7 @@ const Overlay = () => {
               const outOfStock = stockNumber === 0;
 
               return (
-                <option
-                  disabled={outOfStock}
-                  selected={size === s}
-                  value={s}
-                  key={s}
-                >
+                <option disabled={outOfStock} value={s} key={s}>
                   {s.toUpperCase()} ({outOfStock ? "Out of Stock" : stockNumber}
                   )
                 </option>
@@ -549,7 +552,6 @@ const Overlay = () => {
             placeholder="Quantity"
             className="input-bordered input min-w-0 flex-1"
             min="1"
-            defaultValue={quantity}
             onKeyDown={(e) => {
               if ([".", "-"].includes(e.key)) e.preventDefault();
             }}
@@ -618,7 +620,7 @@ const Overlay = () => {
           </svg>
         </button>
       </div> */}
-    </main>
+    </div>
   );
 };
 
@@ -656,18 +658,103 @@ const CanvasE = () => {
   );
 };
 
+const Trail: React.FC<
+  PropsWithChildren<{ open: boolean } & HtmlHTMLAttributes<HTMLDivElement>>
+> = ({ open, children, ...restProps }) => {
+  const items = Children.toArray(children);
+  const trail = useTrail(items.length, {
+    config: { mass: 5, tension: 2000, friction: 200 },
+    opacity: open ? 1 : 0,
+    x: open ? 0 : 20,
+    height: open ? 130 : 0,
+    from: { opacity: 0, x: 20, height: 0 },
+  });
+  return (
+    <div {...restProps}>
+      {trail.map(({ height, ...style }, index) => (
+        <a.div key={index} className="" style={style}>
+          <a.div style={{ height }}>{items[index]}</a.div>
+        </a.div>
+      ))}
+    </div>
+  );
+};
+
+const Intro = ({ show }: { show: boolean }) => {
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          className="absolute z-10 h-screen w-screen bg-white"
+          initial={{ opacity: 1 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 2 }}
+        >
+          <Trail
+            open={true}
+            className="overflow-hidden text-9xl font-extrabold leading-[0.9] tracking-tighter will-change-[transform,opacity]"
+          >
+            <span>STYLECROP</span>
+            <span>MAKES</span>
+            <span>YOU</span>
+            <span>UNIQUE</span>
+          </Trail>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
 export default function Home() {
   const hello = api.example.hello.useQuery({ text: "from tRPC" });
+
+  const [theme, setTheme] = useAtom(themeAtom);
+  const [intro, setIntro] = useState(true);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setIntro(false);
+    }, 2000);
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (
+      window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light"
+    )
+      setTheme("dark");
+  }, [typeof window !== "undefined"]);
+
+  useEffect(() => {
+    if (THEMES.includes(localStorage.getItem(LOCALSTORAGE_THEME_KEY) as Theme))
+      setTheme(localStorage.getItem(LOCALSTORAGE_THEME_KEY) as Theme);
+  }, [typeof localStorage !== "undefined"]);
+
+  useEffect(() => {
+    localStorage.setItem(LOCALSTORAGE_THEME_KEY, theme);
+  }, [theme]);
 
   return (
     <>
       <Head>
-        <title>Create T3 App</title>
-        <meta name="description" content="Generated by create-t3-app" />
+        <title>STYLECROP</title>
+        <meta
+          name="description"
+          content="Welcome to StyleCrop, your ultimate destination for exquisite and luxurious fashion. Indulge in the epitome of style and sophistication with our premium collection of clothing. From timeless classics to cutting-edge designs, we offer an exquisite selection of premium garments crafted from the finest materials. Each piece embodies elegance, quality, and impeccable craftsmanship, ensuring you make a lasting impression wherever you go. Discover the perfect blend of comfort and elegance as you explore our diverse range of premium clothing. From formal occasions to casual outings, our collection caters to every fashion need, reflecting your unique personality and refined taste. Embrace a wardrobe that speaks volumes about your discerning style and exceptional taste. Shop now and experience the pinnacle of luxury fashion at StyleCrop."
+        />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <Overlay />
-      <CanvasE />
+      <main data-theme={theme}>
+        <Overlay />
+        <Intro show={intro} />
+        <CanvasE />
+      </main>
     </>
   );
 }
