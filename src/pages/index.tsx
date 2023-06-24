@@ -45,6 +45,7 @@ import {
   useTransition,
 } from "@react-spring/web";
 import { useBoolean } from "usehooks-ts";
+import Link from "next/link";
 
 const DECALS = ["react", "dodgecoin", "nextjs"] as const;
 type Decal = (typeof DECALS)[number];
@@ -112,6 +113,7 @@ function Backdrop() {
       frames={60}
       alphaTest={0.85}
       scale={12}
+      temporal
       rotation={[Math.PI / 2, 0, 0]}
       position={[0, 0, -0.22]}
     >
@@ -142,7 +144,6 @@ function CameraRig({ children }: PropsWithChildren) {
     if (manualControl) {
       // state.camera.position.set(0, 0, 2);
       // state.camera.rotation.set(0, 0, 0);
-      console.log(state.camera);
     } else {
       easing.damp3(state.camera.position, [0, 0, 2], 0.25, delta);
       if (group.current)
@@ -212,6 +213,8 @@ const Overlay = () => {
   const [overlayHovered, setOverlayHovered] = useAtom(overlayHoveredAtom);
   const showAddedToCartTimeout = useRef<NodeJS.Timeout | null>(null);
 
+  const { data: sessionData } = useSession();
+
   const sizesTempStock = useMemo(
     () =>
       Object.keys(SizesStock).reduce(
@@ -244,13 +247,14 @@ const Overlay = () => {
     <div className="absolute inset-0 h-screen w-screen overflow-hidden [&>*]:z-10">
       <div className="navbar absolute top-0">
         <div className="flex-1">
-          <a
+          <Link
             className="btn-ghost btn text-xl normal-case"
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
+            href="/"
           >
             STYLECROP
-          </a>
+          </Link>
         </div>
         <div className="flex-none">
           <div
@@ -322,9 +326,17 @@ const Overlay = () => {
                   ))}
                 </ul>
                 <div className="card-actions">
-                  <button className="btn-primary btn-block btn">
+                  <a
+                    className={clsx("btn-primary btn-block btn", {
+                      "btn-disabled": !cart.length,
+                    })}
+                    href={cart.length && sessionData ? "/checkout" : undefined}
+                    onClick={() => {
+                      if (!sessionData) void signIn();
+                    }}
+                  >
                     Checkout
-                  </button>
+                  </a>
                 </div>
               </div>
             </div>
@@ -376,12 +388,15 @@ const Overlay = () => {
                   <span className="badge">New</span>
                 </a>
               </li>
-              <li>
-                <a onClick={() => void signOut()}>Logout</a>
-              </li>
-              <li>
-                <a onClick={() => void signIn()}>Sign In</a>
-              </li>
+              {sessionData ? (
+                <li>
+                  <a onClick={() => void signOut()}>Sign Out</a>
+                </li>
+              ) : (
+                <li>
+                  <a onClick={() => void signIn()}>Sign In</a>
+                </li>
+              )}
             </ul>
           </div>
         </div>
@@ -532,7 +547,7 @@ const Overlay = () => {
             value={size || ""}
             className="select-bordered select flex-1"
           >
-            <option disabled selected value={""}>
+            <option disabled value={""}>
               Choose your size
             </option>
             {SIZES.map((s) => {
@@ -723,7 +738,6 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    console.log("1");
     if (
       window &&
       window.matchMedia &&
@@ -735,8 +749,6 @@ export default function Home() {
   }, [typeof window !== "undefined"]);
 
   useEffect(() => {
-    console.log("2");
-
     if (
       localStorage &&
       THEMES.includes(localStorage.getItem(LOCALSTORAGE_THEME_KEY) as Theme)
