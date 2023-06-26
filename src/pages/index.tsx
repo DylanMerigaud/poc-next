@@ -18,7 +18,7 @@ import {
   type MeshProps,
 } from "@react-three/fiber";
 import clsx from "clsx";
-import { atom, useAtom, useAtomValue, useSetAtom } from "jotai";
+import { atom, useAtom, useAtomValue } from "jotai";
 import { easing } from "maath";
 import { signIn, signOut, useSession } from "next-auth/react";
 import Head from "next/head";
@@ -37,15 +37,11 @@ import { type Group } from "three";
 import { api } from "~/utils/api";
 import { produce } from "immer";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  a,
-  animated,
-  useSpring,
-  useTrail,
-  useTransition,
-} from "@react-spring/web";
+import { a, useTrail } from "@react-spring/web";
 import { useBoolean } from "usehooks-ts";
 import Link from "next/link";
+import { useRouter } from "next/router";
+import { useNextQueryParam } from "~/utils/router";
 
 const DECALS = ["react", "dodgecoin", "nextjs"] as const;
 type Decal = (typeof DECALS)[number];
@@ -213,7 +209,7 @@ const Overlay = () => {
   const [overlayHovered, setOverlayHovered] = useAtom(overlayHoveredAtom);
   const showAddedToCartTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  const { data: sessionData } = useSession();
+  const { data: sessionData, status: sessionStatus } = useSession();
 
   const sizesTempStock = useMemo(
     () =>
@@ -235,11 +231,11 @@ const Overlay = () => {
   const totalPrice = 45 * quantity;
   const overSelectedQuantity = !!size && SizesStock[size] < quantity;
 
-  const handleMouseEnter = useCallback(() => {
+  const handleOverlayMouseEnter = useCallback(() => {
     setOverlayHovered(true);
   }, [setOverlayHovered]);
 
-  const handleMouseLeave = useCallback(() => {
+  const handleOverlayMouseLeave = useCallback(() => {
     setOverlayHovered(false);
   }, [setOverlayHovered]);
 
@@ -249,8 +245,8 @@ const Overlay = () => {
         <div className="flex-1">
           <Link
             className="btn-ghost btn text-xl normal-case"
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
+            onMouseEnter={handleOverlayMouseEnter}
+            onMouseLeave={handleOverlayMouseLeave}
             href="/"
           >
             STYLECROP
@@ -267,8 +263,8 @@ const Overlay = () => {
             onClick={() => {
               setShowAddedToCart(false);
             }}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
+            onMouseEnter={handleOverlayMouseEnter}
+            onMouseLeave={handleOverlayMouseLeave}
           >
             <label tabIndex={0} className="btn-ghost btn-circle btn">
               <div className="indicator">
@@ -296,25 +292,38 @@ const Overlay = () => {
               className="card dropdown-content card-compact z-[1] mt-3 w-52 bg-base-100 shadow"
             >
               <div className="card-body">
-                <span className="text-lg font-bold">
+                <div className="text-lg font-bold">
                   {cart.reduce((acc, e) => e.quantity + acc, 0)} Items
-                </span>
-                <span className="text-info">
-                  Subtotal:{" "}
-                  {new Intl.NumberFormat("us-EN", {
-                    style: "currency",
-                    currency: "USD",
-                  }).format(
-                    cart.reduce((acc, e) => e.quantity * unitPrice + acc, 0)
-                  )}
-                </span>
+                </div>
+                <div className="flex text-info">
+                  <div className="flex-1">Subtotal: </div>
+                  <div>
+                    {new Intl.NumberFormat("us-EN", {
+                      style: "currency",
+                      currency: "USD",
+                    }).format(
+                      cart.reduce((acc, e) => e.quantity * unitPrice + acc, 0)
+                    )}
+                  </div>
+                </div>
                 <ul className="flex flex-col gap-1">
                   {cart.map((item) => (
                     <li
                       className="text-base text-accent"
                       key={item.size + item.color + item.decal}
                     >
-                      {item.quantity} Crew neck Tee-Shirt
+                      <div className="flex">
+                        <div className="flex-1">
+                          {item.quantity} Crew neck Tee-Shirt
+                        </div>
+                        <div>
+                          {" "}
+                          {new Intl.NumberFormat("us-EN", {
+                            style: "currency",
+                            currency: "USD",
+                          }).format(item.quantity * unitPrice)}
+                        </div>
+                      </div>
                       <ul className="text-xs text-accent-content">
                         {[
                           `${ColorNames[item.color]}`,
@@ -326,84 +335,94 @@ const Overlay = () => {
                   ))}
                 </ul>
                 <div className="card-actions">
-                  <a
+                  <Link
                     className={clsx("btn-primary btn-block btn", {
                       "btn-disabled": !cart.length,
                     })}
-                    href={cart.length && sessionData ? "/checkout" : undefined}
+                    href={cart.length && sessionData ? "/checkout" : ""}
                     onClick={() => {
                       if (!sessionData) void signIn();
                     }}
                   >
                     Checkout
-                  </a>
+                  </Link>
                 </div>
               </div>
             </div>
           </div>
-          <div
-            className="dropdown-end dropdown"
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-          >
-            <label tabIndex={0} className="btn-ghost btn-circle avatar btn">
-              <div className="w-10 rounded-full">
-                <Image
-                  width={256}
-                  height={256}
-                  alt=""
-                  src="/fake_profile.jpg"
-                />
-              </div>
-            </label>
-            <ul
-              tabIndex={0}
-              className="dropdown-content menu rounded-box menu-sm z-[1] mt-3 w-52 bg-base-100 p-2 shadow"
-            >
-              <li>
-                <a className="justify-between">Profile</a>
-              </li>
-              <li>
-                <a
-                  onClick={() => {
-                    setTheme(
-                      (t) =>
-                        THEMES.at(THEMES.findIndex((e) => e === t) + 1) ||
-                        THEMES[0]
-                    );
-                  }}
+          {(() => {
+            if (sessionStatus === "loading")
+              return (
+                <div className="loading loading-ring loading-lg w-12"></div>
+              );
+            return !sessionData ? (
+              <button
+                onClick={() => void signIn()}
+                className="btn-primary btn-outline btn"
+              >
+                Sign In
+              </button>
+            ) : (
+              <div
+                className="dropdown-end dropdown"
+                onMouseEnter={handleOverlayMouseEnter}
+                onMouseLeave={handleOverlayMouseLeave}
+              >
+                <label tabIndex={0} className="btn-ghost btn-circle avatar btn">
+                  <div className="w-10 rounded-full">
+                    <img
+                      referrerPolicy="no-referrer"
+                      width={256}
+                      height={256}
+                      alt=""
+                      src={sessionData?.user?.image || "/default_profile.jpg"}
+                    />
+                  </div>
+                </label>
+                <ul
+                  tabIndex={0}
+                  className="dropdown-content menu rounded-box menu-sm z-[1] mt-3 w-52 bg-base-100 p-2 shadow"
                 >
-                  Switch to{" "}
-                  {THEMES.at(THEMES.findIndex((e) => e === theme) + 1) ||
-                    THEMES[0]}{" "}
-                  theme
-                </a>
-              </li>
-              <li>
-                <a>Settings</a>
-              </li>
-              <li>
-                <a className="justify-between">
-                  Orders
-                  <span className="badge">New</span>
-                </a>
-              </li>
-              {sessionData ? (
-                <li>
-                  <a onClick={() => void signOut()}>Sign Out</a>
-                </li>
-              ) : (
-                <li>
-                  <a onClick={() => void signIn()}>Sign In</a>
-                </li>
-              )}
-            </ul>
-          </div>
+                  <li>
+                    <a className="justify-between">Profile</a>
+                  </li>
+                  <li>
+                    <a
+                      onClick={() => {
+                        setTheme(
+                          (t) =>
+                            THEMES.at(THEMES.findIndex((e) => e === t) + 1) ||
+                            THEMES[0]
+                        );
+                      }}
+                    >
+                      Switch to{" "}
+                      {THEMES.at(THEMES.findIndex((e) => e === theme) + 1) ||
+                        THEMES[0]}{" "}
+                      theme
+                    </a>
+                  </li>
+                  <li>
+                    <a>Settings</a>
+                  </li>
+                  <li>
+                    <a className="justify-between">
+                      Orders
+                      <span className="badge">New</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a onClick={() => void signOut()}>Sign Out</a>
+                  </li>
+                </ul>
+              </div>
+            );
+          })()}
         </div>
       </div>
       <div
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        onMouseEnter={handleOverlayMouseEnter}
+        onMouseLeave={handleOverlayMouseLeave}
         className="card absolute bottom-60 left-6 flex flex-col gap-2 bg-slate-400 bg-opacity-10 p-2 shadow-lg "
       >
         {COLORS.map((c) => (
@@ -420,8 +439,8 @@ const Overlay = () => {
         ))}
       </div>
       <div
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        onMouseEnter={handleOverlayMouseEnter}
+        onMouseLeave={handleOverlayMouseLeave}
         className="card absolute bottom-6 left-6 flex flex-col gap-2 bg-slate-400 bg-opacity-5 p-2 shadow-lg"
       >
         {DECALS.map((d) => (
@@ -447,8 +466,8 @@ const Overlay = () => {
         ))}
       </div>
       <button
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        onMouseEnter={handleOverlayMouseEnter}
+        onMouseLeave={handleOverlayMouseLeave}
         className="absolute bottom-6 left-28 flex gap-2 rounded-2xl bg-slate-400 bg-opacity-10 p-2 text-secondary shadow-lg hover:scale-105 hover:bg-opacity-20 active:bg-opacity-30"
         onClick={() => {
           const link = document.createElement("a");
@@ -479,8 +498,8 @@ const Overlay = () => {
         </svg>
       </button>
       <form
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        onMouseEnter={handleOverlayMouseEnter}
+        onMouseLeave={handleOverlayMouseLeave}
         className="card absolute bottom-5 right-6 flex flex-col gap-2 bg-slate-400 bg-opacity-10 p-2 shadow-lg"
         onSubmit={(e) => {
           e.preventDefault();
@@ -724,18 +743,30 @@ const Intro = ({ show }: { show: boolean }) => {
 
 export default function Home() {
   const hello = api.example.hello.useQuery({ text: "from tRPC" });
-
   const [theme, setTheme] = useAtom(themeAtom);
-  const [intro, setIntro] = useState(true);
+  const router = useRouter();
+  const introParam = useNextQueryParam("intro");
+  const [intro, setIntro] = useState<boolean | null>(null);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
       setIntro(false);
+      void router.replace({
+        query: { ...router.query, intro: false },
+      });
     }, 2000);
     return () => {
       clearTimeout(timeout);
     };
   }, []);
+
+  useEffect(() => {
+    setIntro(true);
+  }, []);
+  useEffect(() => {
+    console.log(introParam);
+    if (introParam === "false") setIntro(false);
+  }, [introParam]);
 
   useEffect(() => {
     if (
@@ -746,7 +777,7 @@ export default function Home() {
         : "light"
     )
       setTheme("dark");
-  }, [typeof window !== "undefined"]);
+  }, []);
 
   useEffect(() => {
     if (
@@ -754,7 +785,7 @@ export default function Home() {
       THEMES.includes(localStorage.getItem(LOCALSTORAGE_THEME_KEY) as Theme)
     )
       setTheme(localStorage.getItem(LOCALSTORAGE_THEME_KEY) as Theme);
-  }, [typeof localStorage !== "undefined"]);
+  }, []);
 
   const initialRenderBoolean = useBoolean(true);
   useEffect(() => {
@@ -778,7 +809,11 @@ export default function Home() {
       </Head>
       <main data-theme={theme}>
         <Overlay />
-        <Intro show={intro} />
+        {intro === null ? (
+          <div className="absolute z-10 h-screen w-screen bg-base-100" />
+        ) : (
+          <Intro show={intro} />
+        )}
         <CanvasE />
       </main>
     </>
