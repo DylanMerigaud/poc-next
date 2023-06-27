@@ -22,6 +22,30 @@ model Example {
     updatedAt DateTime @updatedAt
 }
 
+model BillingAddress {
+    id        String   @id @default(cuid())
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    street    String
+    city      String
+    state     String
+    zip       String
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId    String   @unique
+}
+
+model DeliveryAddress {
+    id        String   @id @default(cuid())
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    street    String
+    city      String
+    state     String
+    zip       String
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId    String   @unique
+}
+
 // Necessary for Next auth
 model Account {
     id                String  @id @default(cuid())
@@ -50,13 +74,15 @@ model Session {
 }
 
 model User {
-    id            String    @id @default(cuid())
-    name          String?
-    email         String?   @unique
-    emailVerified DateTime?
-    image         String?
-    accounts      Account[]
-    sessions      Session[]
+    id                  String    @id @default(cuid())
+    name                String?
+    email               String?   @unique
+    emailVerified       DateTime?
+    image               String?
+    accounts            Account[]
+    sessions            Session[]
+    deliveryAddress     DeliveryAddress[]
+    billingAddress      BillingAddress[]
 }
 
 model VerificationToken {

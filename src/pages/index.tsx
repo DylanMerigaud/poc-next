@@ -42,6 +42,7 @@ import { useBoolean } from "usehooks-ts";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useNextQueryParam } from "~/utils/router";
+import { THEMES, themeAtom } from "./_app";
 
 const DECALS = ["react", "dodgecoin", "nextjs"] as const;
 type Decal = (typeof DECALS)[number];
@@ -52,7 +53,7 @@ const DecalNames: Record<Decal, string> = {
 };
 const DecalPaths: Record<Decal, string> = DECALS.reduce(
   (r, d) => ({ ...r, [d]: `/${d}.png` }),
-  {}
+  {} as Record<Decal, string>
 );
 
 const COLORS = [
@@ -85,15 +86,10 @@ const SizesStock: Record<Size, number> = {
   xxxl: 7,
 };
 
-const THEMES = ["light", "dark"] as const;
-type Theme = (typeof THEMES)[number];
-const LOCALSTORAGE_THEME_KEY = "theme";
-
 const colorAtom = atom<Color>(COLORS[0]);
 const sizeAtom = atom<Size | null>(null);
 const quantityAtom = atom<number>(1);
 const decalAtom = atom<Decal>(DECALS[0]);
-const themeAtom = atom<Theme>("light");
 const cartAtom = atom<
   { color: Color; quantity: number; size: Size; decal: Decal }[]
 >([]);
@@ -214,6 +210,13 @@ const Overlay = () => {
   const showAddedToCartTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const { data: sessionData, status: sessionStatus } = useSession();
+
+  const { data: whoAmI } = api.user.whoAmI.useQuery(
+    undefined, // no input
+    { enabled: sessionData?.user !== undefined }
+  );
+
+  console.log(whoAmI);
 
   const sizesTempStock = useMemo(
     () =>
@@ -388,7 +391,9 @@ const Overlay = () => {
                   className="dropdown-content menu rounded-box menu-sm z-[1] mt-3 w-52 bg-base-100 p-2 shadow"
                 >
                   <li>
-                    <a className="justify-between">Profile</a>
+                    <Link className="justify-between" href="/profile">
+                      Profile
+                    </Link>
                   </li>
                   <li>
                     <a
@@ -747,7 +752,6 @@ const Intro = ({ show }: { show: boolean }) => {
 
 export default function Home() {
   const hello = api.example.hello.useQuery({ text: "from tRPC" });
-  const [theme, setTheme] = useAtom(themeAtom);
   const router = useRouter();
   const introParam = useNextQueryParam("intro");
   const [intro, setIntro] = useState<boolean | null>(null);
@@ -768,38 +772,8 @@ export default function Home() {
     setIntro(true);
   }, []);
   useEffect(() => {
-    console.log(introParam);
     if (introParam === "false") setIntro(false);
   }, [introParam]);
-
-  useEffect(() => {
-    if (
-      window &&
-      window.matchMedia &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light"
-    )
-      setTheme("dark");
-  }, []);
-
-  useEffect(() => {
-    if (
-      localStorage &&
-      THEMES.includes(localStorage.getItem(LOCALSTORAGE_THEME_KEY) as Theme)
-    )
-      setTheme(localStorage.getItem(LOCALSTORAGE_THEME_KEY) as Theme);
-  }, []);
-
-  const initialRenderBoolean = useBoolean(true);
-  useEffect(() => {
-    initialRenderBoolean.setFalse();
-  }, []);
-
-  useEffect(() => {
-    if (!initialRenderBoolean.value)
-      localStorage.setItem(LOCALSTORAGE_THEME_KEY, theme);
-  }, [theme]);
 
   return (
     <>
@@ -811,7 +785,7 @@ export default function Home() {
         />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <main data-theme={theme}>
+      <div>
         <Overlay />
         {intro === null ? (
           <div className="absolute z-10 h-screen w-screen bg-base-100" />
@@ -819,7 +793,7 @@ export default function Home() {
           <Intro show={intro} />
         )}
         <CanvasE />
-      </main>
+      </div>
     </>
   );
 }
