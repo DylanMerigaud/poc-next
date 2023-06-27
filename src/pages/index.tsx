@@ -50,6 +50,10 @@ const DecalNames: Record<Decal, string> = {
   dodgecoin: "Dodgecoin",
   nextjs: "Next.js",
 };
+const DecalPaths: Record<Decal, string> = DECALS.reduce(
+  (r, d) => ({ ...r, [d]: `/${d}.png` }),
+  {}
+);
 
 const COLORS = [
   "#ccc",
@@ -195,7 +199,7 @@ const Shirt = (props: MeshProps) => {
 };
 
 useGLTF.preload("/shirt_baked_collapsed.glb");
-["/react.png", "/three2.png", "/pmndrs.png"].forEach(useTexture.preload);
+Object.values(DecalPaths).forEach(useTexture.preload);
 
 const Overlay = () => {
   const [color, setColor] = useAtom(colorAtom);
@@ -459,7 +463,7 @@ const Overlay = () => {
               className="scale-90"
               width={64}
               height={64}
-              src={"/" + d + ".png"}
+              src={DecalPaths[d]}
               alt={d}
             />
           </button>
