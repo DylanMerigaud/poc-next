@@ -14,7 +14,6 @@ const SDeliveryAddress = z.object({
 });
 
 export default function Profile() {
-  const { data: whoAmI } = api.user.whoAmI.useQuery();
   const deliveryAddressGetAllQuery = api.deliveryAddress.getAll.useQuery();
   const deliveryAddressCreateMutation =
     api.deliveryAddress.create.useMutation();
@@ -39,10 +38,13 @@ export default function Profile() {
   }, [deliveryAddressGetAllQuery.data]);
 
   const onSubmit = handleSubmit((data) => {
-    if (deliveryAddressId) deliveryAddressUpdateAllMutation.mutate([data]);
+    if (data.id)
+      deliveryAddressUpdateAllMutation.mutate([
+        data as typeof data & { id: string },
+      ]);
     else
       deliveryAddressCreateMutation.mutate(data, {
-        onSettled: () => deliveryAddressGetAllQuery.refetch(),
+        onSettled: () => void deliveryAddressGetAllQuery.refetch(),
       });
   });
 
