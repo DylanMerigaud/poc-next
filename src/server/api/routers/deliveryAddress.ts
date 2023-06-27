@@ -1,9 +1,5 @@
 import { z } from "zod";
-import {
-  createTRPCRouter,
-  publicProcedure,
-  protectedProcedure,
-} from "~/server/api/trpc";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 
 const SDeliveryAddressCreate = z.object({
   street: z.string(),
@@ -59,7 +55,7 @@ export const deliveryAddressRouter = createTRPCRouter({
       )
     )
     .mutation(async ({ input, ctx }) => {
-      return await prisma.$transaction(
+      return await ctx.prisma.$transaction(
         input.map((address) => {
           return ctx.prisma.deliveryAddress.updateMany({
             where: {
