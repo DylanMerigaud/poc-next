@@ -9,7 +9,6 @@ import {
   Decal,
   Center,
   Environment,
-  CameraControls,
 } from "@react-three/drei";
 import {
   Canvas,
@@ -43,20 +42,21 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useNextQueryParam } from "~/utils/router";
 import { THEMES, themeAtom } from "./_app";
+import Navbar from "~/components/navbar";
 
-const DECALS = ["react", "dodgecoin", "nextjs"] as const;
+export const DECALS = ["react", "dodgecoin", "nextjs"] as const;
 type Decal = (typeof DECALS)[number];
-const DecalNames: Record<Decal, string> = {
+export const DecalNames: Record<Decal, string> = {
   react: "React",
   dodgecoin: "Dodgecoin",
   nextjs: "Next.js",
 };
-const DecalPaths: Record<Decal, string> = DECALS.reduce(
+export const DecalPaths: Record<Decal, string> = DECALS.reduce(
   (r, d) => ({ ...r, [d]: `/${d}.png` }),
   {} as Record<Decal, string>
 );
 
-const COLORS = [
+export const COLORS = [
   "#ccc",
   "#EFBD4E",
   "#80C670",
@@ -65,7 +65,7 @@ const COLORS = [
   "#353934",
 ] as const;
 type Color = (typeof COLORS)[number];
-const ColorNames: Record<Color, string> = {
+export const ColorNames: Record<Color, string> = {
   "#ccc": "White",
   "#EFBD4E": "Yellow",
   "#80C670": "Green",
@@ -73,6 +73,7 @@ const ColorNames: Record<Color, string> = {
   "#EF674E": "Red",
   "#353934": "Black",
 };
+export const unitPrice = 45;
 
 const SIZES = ["xs", "s", "m", "l", "xl", "xxl", "xxxl"] as const;
 type Size = (typeof SIZES)[number];
@@ -86,15 +87,14 @@ const SizesStock: Record<Size, number> = {
   xxxl: 7,
 };
 
-const colorAtom = atom<Color>(COLORS[0]);
-const sizeAtom = atom<Size | null>(null);
-const quantityAtom = atom<number>(1);
-const decalAtom = atom<Decal>(DECALS[0]);
-const cartAtom = atom<
+export const colorAtom = atom<Color>(COLORS[0]);
+export const sizeAtom = atom<Size | null>(null);
+export const quantityAtom = atom<number>(1);
+export const decalAtom = atom<Decal>(DECALS[0]);
+export const cartAtom = atom<
   { color: Color; quantity: number; size: Size; decal: Decal }[]
 >([]);
-const manualControlAtom = atom(false);
-const overlayHoveredAtom = atom(false);
+export const overlayHoveredAtom = atom(false);
 
 function Backdrop() {
   const shadows = useRef<any>();
@@ -133,32 +133,19 @@ function Backdrop() {
 
 function CameraRig({ children }: PropsWithChildren) {
   const group = useRef<Group>(null);
-  const manualControl = useAtomValue(manualControlAtom);
   const overlayHovered = useAtomValue(overlayHoveredAtom);
 
   useFrame((state, delta) => {
-    if (manualControl) {
-      // state.camera.position.set(0, 0, 2);
-      // state.camera.rotation.set(0, 0, 0);
-    } else {
-      easing.damp3(state.camera.position, [0, 0, 2], 0.25, delta);
-      if (group.current)
-        easing.dampE(
-          group.current.rotation,
-          overlayHovered
-            ? [0, 0, 0]
-            : [state.pointer.y / 6, -state.pointer.x, 0],
-          0.25,
-          delta
-        );
-    }
+    easing.damp3(state.camera.position, [0, 0, 2], 0.25, delta);
+    if (group.current)
+      easing.dampE(
+        group.current.rotation,
+        overlayHovered ? [0, 0, 0] : [state.pointer.y / 6, -state.pointer.x, 0],
+        0.25,
+        delta
+      );
   });
-  return (
-    <group ref={group}>
-      {manualControl && <CameraControls />}
-      {children}
-    </group>
-  );
+  return <group ref={group}>{children}</group>;
 }
 
 const Shirt = (props: MeshProps) => {
@@ -202,7 +189,6 @@ const Overlay = () => {
   const [decal, setDecal] = useAtom(decalAtom);
   const [size, setSize] = useAtom(sizeAtom);
   const [quantity, setQuantity] = useAtom(quantityAtom);
-  const [manualControl, setManualControl] = useAtom(manualControlAtom);
   const [theme, setTheme] = useAtom(themeAtom);
   const [cart, setCart] = useAtom(cartAtom);
   const [showAddedToCart, setShowAddedToCart] = useState(false);
@@ -234,7 +220,6 @@ const Overlay = () => {
     [cart]
   );
 
-  const unitPrice = 45;
   const totalPrice = 45 * quantity;
   const overSelectedQuantity = !!size && SizesStock[size] < quantity;
 
@@ -247,188 +232,7 @@ const Overlay = () => {
   }, [setOverlayHovered]);
 
   return (
-    <div className="absolute inset-0 h-screen w-screen overflow-hidden [&>*]:z-10">
-      <div className="navbar absolute top-0">
-        <div className="flex-1">
-          <Link
-            className="btn-ghost btn text-xl normal-case"
-            onMouseEnter={handleOverlayMouseEnter}
-            onMouseLeave={handleOverlayMouseLeave}
-            href="/"
-          >
-            STYLECROP
-          </Link>
-        </div>
-        <div className="flex-none">
-          <div
-            className={clsx("dropdown-end dropdown", {
-              "tooltip-info tooltip-open tooltip tooltip-left": showAddedToCart,
-            })}
-            data-tip={
-              showAddedToCart ? "Item was added in the cart" : undefined
-            }
-            onClick={() => {
-              setShowAddedToCart(false);
-            }}
-            onMouseEnter={handleOverlayMouseEnter}
-            onMouseLeave={handleOverlayMouseLeave}
-          >
-            <label tabIndex={0} className="btn-ghost btn-circle btn">
-              <div className="indicator">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-                  />
-                </svg>
-                <span className="badge badge-sm indicator-item">
-                  {cart.reduce((acc, e) => e.quantity + acc, 0)}
-                </span>
-              </div>
-            </label>
-            <div
-              tabIndex={0}
-              className="card dropdown-content card-compact z-[1] mt-3 w-52 bg-base-100 shadow"
-            >
-              <div className="card-body">
-                <div className="text-lg font-bold">
-                  {cart.reduce((acc, e) => e.quantity + acc, 0)} Items
-                </div>
-                <div className="flex text-info">
-                  <div className="flex-1">Subtotal: </div>
-                  <div>
-                    {new Intl.NumberFormat("us-EN", {
-                      style: "currency",
-                      currency: "USD",
-                    }).format(
-                      cart.reduce((acc, e) => e.quantity * unitPrice + acc, 0)
-                    )}
-                  </div>
-                </div>
-                <ul className="flex flex-col gap-1">
-                  {cart.map((item) => (
-                    <li
-                      className="text-base text-accent"
-                      key={item.size + item.color + item.decal}
-                    >
-                      <div className="flex">
-                        <div className="flex-1">
-                          {item.quantity} Crew neck Tee-Shirt
-                        </div>
-                        <div>
-                          {" "}
-                          {new Intl.NumberFormat("us-EN", {
-                            style: "currency",
-                            currency: "USD",
-                          }).format(item.quantity * unitPrice)}
-                        </div>
-                      </div>
-                      <ul className="text-xs text-accent-content">
-                        {[
-                          `${ColorNames[item.color]}`,
-                          `${item.size.toUpperCase()}`,
-                          `${DecalNames[item.decal]} decal`,
-                        ].join(" | ")}
-                      </ul>
-                    </li>
-                  ))}
-                </ul>
-                <div className="card-actions">
-                  <Link
-                    className={clsx("btn-primary btn-block btn", {
-                      "btn-disabled": !cart.length,
-                    })}
-                    href={cart.length && sessionData ? "/checkout" : ""}
-                    onClick={() => {
-                      if (!sessionData) void signIn();
-                    }}
-                  >
-                    Checkout
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-          {(() => {
-            if (sessionStatus === "loading")
-              return (
-                <div className="loading loading-ring loading-lg w-12"></div>
-              );
-            return !sessionData ? (
-              <button
-                onClick={() => void signIn()}
-                className="btn-primary btn-outline btn"
-              >
-                Sign In
-              </button>
-            ) : (
-              <div
-                className="dropdown-end dropdown"
-                onMouseEnter={handleOverlayMouseEnter}
-                onMouseLeave={handleOverlayMouseLeave}
-              >
-                <label tabIndex={0} className="btn-ghost btn-circle avatar btn">
-                  <div className="w-10 rounded-full">
-                    <img
-                      referrerPolicy="no-referrer"
-                      width={256}
-                      height={256}
-                      alt=""
-                      src={sessionData?.user?.image || "/default_profile.jpg"}
-                    />
-                  </div>
-                </label>
-                <ul
-                  tabIndex={0}
-                  className="dropdown-content menu rounded-box menu-sm z-[1] mt-3 w-52 bg-base-100 p-2 shadow"
-                >
-                  <li>
-                    <Link className="justify-between" href="/profile">
-                      Profile
-                    </Link>
-                  </li>
-                  <li>
-                    <a
-                      onClick={() => {
-                        setTheme(
-                          (t) =>
-                            THEMES.at(THEMES.findIndex((e) => e === t) + 1) ||
-                            THEMES[0]
-                        );
-                      }}
-                    >
-                      Switch to{" "}
-                      {THEMES.at(THEMES.findIndex((e) => e === theme) + 1) ||
-                        THEMES[0]}{" "}
-                      theme
-                    </a>
-                  </li>
-                  <li>
-                    <a>Settings</a>
-                  </li>
-                  <li>
-                    <a className="justify-between">
-                      Orders
-                      <span className="badge">New</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a onClick={() => void signOut()}>Sign Out</a>
-                  </li>
-                </ul>
-              </div>
-            );
-          })()}
-        </div>
-      </div>
+    <>
       <div
         onMouseEnter={handleOverlayMouseEnter}
         onMouseLeave={handleOverlayMouseLeave}
@@ -570,7 +374,12 @@ const Overlay = () => {
             required
             onChange={(e) => {
               setSize(e.target.value as Size);
-              setQuantity((q) => Math.min(q, size ? sizesTempStock[size] : q));
+              setQuantity((q) =>
+                Math.min(
+                  q,
+                  e.target.value ? sizesTempStock[e.target.value as Size] : q
+                )
+              );
             }}
             value={size || ""}
             className="select-bordered select flex-1"
@@ -638,33 +447,7 @@ const Overlay = () => {
           )
         </button>
       </form>
-      {/* <div className="absolute bottom-6 right-6 flex flex-col gap-2 bg-slate-400 bg-opacity-5 p-2 shadow-lg">
-        <button
-          className={clsx(
-            "flex h-14 w-14 items-center justify-center rounded-sm bg-slate-400 bg-opacity-10  hover:bg-opacity-20 hover:scale-105 active:bg-opacity-30",
-            {
-              "ring-2": manualControl,
-            }
-          )}
-          onClick={() => setManualControl((v) => !v)}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-            className="h-6 w-6"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3"
-            />
-          </svg>
-        </button>
-      </div> */}
-    </div>
+    </>
   );
 };
 
@@ -729,7 +512,7 @@ const Intro = ({ show }: { show: boolean }) => {
     <AnimatePresence>
       {show && (
         <motion.div
-          className="absolute z-10 h-screen w-screen bg-base-100"
+          className="absolute inset-0 z-10 h-screen w-screen bg-base-100"
           initial={{ opacity: 1 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -786,13 +569,14 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <div>
+        <Navbar overContent />
+        <CanvasE />
         <Overlay />
         {intro === null ? (
           <div className="absolute z-10 h-screen w-screen bg-base-100" />
         ) : (
           <Intro show={intro} />
         )}
-        <CanvasE />
       </div>
     </>
   );

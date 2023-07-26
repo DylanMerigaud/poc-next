@@ -6,6 +6,7 @@ import "~/styles/globals.css";
 import { atom, useAtom } from "jotai";
 import { useBoolean } from "usehooks-ts";
 import { useEffect } from "react";
+import Navbar from "~/components/navbar";
 
 export const THEMES = ["light", "dark"] as const;
 export type Theme = (typeof THEMES)[number];
