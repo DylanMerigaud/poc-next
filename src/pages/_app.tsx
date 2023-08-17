@@ -6,7 +6,6 @@ import "~/styles/globals.css";
 import { atom, useAtom } from "jotai";
 import { useBoolean } from "usehooks-ts";
 import { useEffect } from "react";
-import Navbar from "~/components/navbar";
 
 export const THEMES = ["light", "dark"] as const;
 export type Theme = (typeof THEMES)[number];
@@ -28,7 +27,7 @@ const MyApp: AppType<{ session: Session | null }> = ({
         : "light"
     )
       setTheme("dark");
-  }, []);
+  }, [setTheme]);
 
   useEffect(() => {
     if (
@@ -36,17 +35,17 @@ const MyApp: AppType<{ session: Session | null }> = ({
       THEMES.includes(localStorage.getItem(LOCALSTORAGE_THEME_KEY) as Theme)
     )
       setTheme(localStorage.getItem(LOCALSTORAGE_THEME_KEY) as Theme);
-  }, []);
+  }, [setTheme]);
 
   const initialRenderBoolean = useBoolean(true);
   useEffect(() => {
     initialRenderBoolean.setFalse();
-  }, []);
+  }, [initialRenderBoolean]);
 
   useEffect(() => {
     if (!initialRenderBoolean.value)
       localStorage.setItem(LOCALSTORAGE_THEME_KEY, theme);
-  }, [theme]);
+  }, [initialRenderBoolean.value, theme]);
 
   return (
     <SessionProvider session={session}>

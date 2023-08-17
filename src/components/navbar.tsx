@@ -1,15 +1,16 @@
 import clsx from "clsx";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { signIn, signOut, useSession } from "next-auth/react";
+import Image from "next/image";
 import Link from "next/link";
 import React, { useCallback, useState } from "react";
+import { cartAtom, overlayHoveredAtom } from "~/features/shirtShowcase/atoms";
 import {
+  unitPrice,
   ColorNames,
   DecalNames,
-  cartAtom,
-  overlayHoveredAtom,
-  unitPrice,
-} from "~/pages";
+} from "~/features/shirtShowcase/consts";
+
 import { themeAtom, THEMES } from "~/pages/_app";
 
 export type NavbarProps = {
@@ -77,7 +78,7 @@ export default function Navbar(props: NavbarProps) {
           </label>
           <div
             tabIndex={0}
-            className="card-compact card dropdown-content z-[1] mt-3 w-52 bg-base-100 shadow"
+            className="card dropdown-content card-compact z-[1] mt-3 w-52 bg-base-100 shadow"
           >
             <div className="card-body">
               <div className="text-lg font-bold">
@@ -140,7 +141,7 @@ export default function Navbar(props: NavbarProps) {
         </div>
         {(() => {
           if (sessionStatus === "loading")
-            return <div className="loading loading-ring loading-lg w-12"></div>;
+            return <div className="loading loading-ring loading-lg"></div>;
           return !sessionData ? (
             <button
               onClick={() => void signIn()}
@@ -156,7 +157,7 @@ export default function Navbar(props: NavbarProps) {
             >
               <label tabIndex={0} className="btn-ghost btn-circle avatar btn">
                 <div className="w-10 rounded-full">
-                  <img
+                  <Image
                     referrerPolicy="no-referrer"
                     width={256}
                     height={256}
